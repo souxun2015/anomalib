@@ -1,7 +1,8 @@
-# EfficientAd
+# Simplenet
 
 This is the implementation of the [Simplenet](https://arxiv.org/abs/2303.15140) paper. It is based on https://github.com/DonaldRR/SimpleNet/tree/main and https://github.com/amazon-science/patchcore-inspection
 
+To be noted, the noise adding method is different with the original method. In this implementation, we apply a adaptive noise adding method.
 Model Type: Segmentation
 
 ## Description
