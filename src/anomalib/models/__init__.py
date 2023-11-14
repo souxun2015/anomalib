@@ -29,6 +29,7 @@ from anomalib.models.padim import Padim
 from anomalib.models.patchcore import Patchcore
 from anomalib.models.reverse_distillation import ReverseDistillation
 from anomalib.models.rkde import Rkde
+from anomalib.models.simplenet import Simplenet
 from anomalib.models.stfpm import Stfpm
 
 __all__ = [
@@ -48,6 +49,7 @@ __all__ = [
     "Stfpm",
     "AiVad",
     "EfficientAd",
+    "Simplenet",
 ]
 
 logger = logging.getLogger(__name__)
@@ -95,7 +97,6 @@ def convert_pascal_to_snake_case(pascal_case: str) -> str:
 
 def get_available_models() -> list[str]:
     """Get list of available models.
-
     Returns:
         list[str]: List of available models.
 
