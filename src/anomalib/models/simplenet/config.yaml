@@ -1,9 +1,9 @@
 dataset:
   name: mvtec
   format: mvtec
-  path: /home/daoai/Desktop/Lixin/Projects/AnomalyDetection/Dataset/mvtec_anomaly_detection
+  path: ../../Dataset/mvtec_anomaly_detection
   task: segmentation
-  category: carpet
+  category: metal_nut
   train_batch_size: 8
   eval_batch_size: 8
   num_workers: 8

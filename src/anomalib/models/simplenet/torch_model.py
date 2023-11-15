@@ -585,14 +585,8 @@ class SimplenetModel(nn.Module):
                 patch_scores = patch_scores.reshape(batchsize, scales[0], scales[1])
                 feats = feats.reshape(batchsize, scales[0], scales[1], -1)
                 masks, feats = self.anomaly_segmentor.convert_to_segmentation(patch_scores, feats)
-            masks_mat = torch.tensor(masks[0].shape)
-            for i in masks:
-                i_tensor = torch.tensor(i)
-                mask_s = i_tensor.unsqueeze(0)
-                if masks_mat is None:
-                    masks_mat = mask_s
-                else:
-                    masks_mat = torch.cat((masks_mat, mask_s), dim=0)
+            tensor_masks = [torch.tensor(mask).unsqueeze(0) for mask in masks]
+            masks_mat = torch.stack(tensor_masks, dim=0)
             masks_mat = masks_mat.to(device)
 
             return features, masks_mat, image_scores
