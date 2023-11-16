@@ -6,10 +6,59 @@ import numpy as np
 import scipy.ndimage as ndimage
 import timm
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 from scipy.optimize import fsolve
-from torch import Tensor, nn
+from torch import Tensor
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, smooth=1e-5, gamma=4, alpha=None, size_average=True):
+        super(FocalLoss, self).__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.smooth = smooth
+        if isinstance(alpha, (float, int)):
+            self.alpha = torch.Tensor([alpha, 1 - alpha])
+        if isinstance(alpha, list):
+            self.alpha = torch.Tensor(alpha)
+        self.size_average = size_average
+
+    def forward(self, input, target):
+        if input.dim() > 2:
+            input = input.view(input.size(0), input.size(1), -1)  # N,C,H,W => N,C,H*W
+            input = input.transpose(1, 2)  # N,C,H*W => N,H*W,C
+            input = input.contiguous().view(-1, input.size(2))  # N,H*W,C => N*H*W,C
+        target = target.view(-1, 1)
+
+        pt = input
+        logpt = pt.log()
+
+        # add label smoothing
+        num_class = input.shape[1]
+        idx = target.cpu().long()
+
+        one_hot_key = torch.FloatTensor(target.size(0), num_class).zero_()
+        one_hot_key = one_hot_key.scatter_(1, idx, 1)
+        if one_hot_key.device != input.device:
+            one_hot_key = one_hot_key.to(input.device)
+
+        if self.smooth:
+            one_hot_key = torch.clamp(one_hot_key, self.smooth, 1.0 - self.smooth)
+            logpt = logpt * one_hot_key
+
+        if self.alpha is not None:
+            if self.alpha.type() != input.data.type():
+                self.alpha = self.alpha.type_as(input.data)
+            at = self.alpha.gather(0, target.data.view(-1))
+            logpt = logpt * at
+
+        loss = (-1 * (1 - pt) ** self.gamma * logpt).sum(1)
+        if self.size_average:
+            return loss.mean()
+        else:
+            return loss.sum()
 
 
 class RunningAverage:
@@ -357,7 +406,7 @@ class Discriminator(torch.nn.Module):
                     torch.nn.Linear(_in, _hidden), torch.nn.BatchNorm1d(_hidden), torch.nn.LeakyReLU(0.2)
                 ),
             )
-        self.tail = torch.nn.Linear(_hidden, 1, bias=False)
+        self.tail = torch.nn.Linear(_hidden, 2, bias=False)
 
     def forward(self, x):
         """
@@ -482,6 +531,7 @@ class SimplenetModel(nn.Module):
         self.adp_noist_std = RunningAverage()
 
         self.anomaly_segmentor = RescaleSegmentor(target_size=input_size[-2:])
+        self.focal_loss = FocalLoss()
 
     def forward(self, batch: Tensor):
         batchsize = batch.shape[0]
@@ -543,7 +593,7 @@ class SimplenetModel(nn.Module):
                 # Initial guess for sigma2
                 initial_guess = cur_std / 5
                 # Solve for sigma2
-                sigma2_solution = fsolve(equations, initial_guess, args=(0.5, cur_mean, cur_std, 0))
+                sigma2_solution = fsolve(equations, initial_guess, args=(0.5, cur_mean, cur_std, 0))  # 0.5
                 self.noise_std = sigma2_solution[0]
 
             noise_idxs = torch.randint(0, self.mix_noise, torch.Size([true_feats.shape[0]]))
@@ -556,23 +606,29 @@ class SimplenetModel(nn.Module):
             fake_feats = true_feats + noise
 
             scores = self.discriminator(torch.cat([true_feats, fake_feats]))
-            true_scores = scores[: len(true_feats)]
-            fake_scores = scores[len(fake_feats) :]
+            # true_scores = scores[: len(true_feats)]
+            # fake_scores = scores[len(true_feats) :]
 
-            th = self.dsc_margin
-            (true_scores.detach() >= th).sum() / len(true_scores)
-            (fake_scores.detach() < -th).sum() / len(fake_scores)
-            true_loss = torch.clip(-true_scores + th, min=0)
-            fake_loss = torch.clip(fake_scores + th, min=0)
+            # th = self.dsc_margin
+            # (true_scores.detach() >= th).sum() / len(true_scores)
+            # (fake_scores.detach() < -th).sum() / len(fake_scores)
+            # true_loss = torch.clip(-true_scores + th, min=0)
+            # fake_loss = torch.clip(fake_scores + th, min=0)
 
-            loss = true_loss.mean() + fake_loss.mean()
+            # loss = true_loss.mean() + fake_loss.mean()
+            outputs = F.softmax(scores, dim=1)
+            target = torch.zeros(scores.shape[0]).to(device)
+            target[len(true_feats) :] = 1
+            loss = self.focal_loss(outputs, target)
 
             return loss
         else:
             with torch.no_grad():
                 feats = self.pre_projection(features)
 
-                patch_scores = image_scores = -self.discriminator(feats)
+                patch_scores = image_scores = F.softmax(self.discriminator(feats))[:, 1]
+
+                # patch_scores = image_scores = -self.discriminator(feats)
                 patch_scores = patch_scores.cpu().numpy()
                 # image_scores = image_scores.cpu().numpy()
 

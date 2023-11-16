@@ -4,6 +4,9 @@ This script reads the name of the model or config file from command
 line, train/test the anomaly model to get quantitative and qualitative
 results.
 """
+# import sys
+
+# sys.path.append("/home/daoai/Desktop/Lixin/Projects/AnomalyDetection/pull_request_1/anomalib/src")
 
 # Copyright (C) 2022 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0

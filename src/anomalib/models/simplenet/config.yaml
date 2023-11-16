@@ -3,12 +3,12 @@ dataset:
   format: mvtec
   path: ../../Dataset/mvtec_anomaly_detection
   task: segmentation
-  category: metal_nut
+  category: tile # wood
   train_batch_size: 8
   eval_batch_size: 8
   num_workers: 8
-  image_size: 288 # dimensions to which images are resized (mandatory)
-  center_crop: 288 # dimensions to which images are center-cropped after resizing (optional)
+  image_size: 288 #288 # dimensions to which images are resized (mandatory)
+  center_crop: 288 #288 # dimensions to which images are center-cropped after resizing (optional)
   normalization: imagenet # data distribution to which the images will be normalized: [none, imagenet]
   transform_config:
     train: null
